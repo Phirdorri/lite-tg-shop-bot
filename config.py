@@ -1,17 +1,38 @@
+import os
 from aiogram import Bot
 from aiogram.dispatcher import Dispatcher
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from database import DB
 
-admins = []                 # list of admin's IDs (for example - [345345234, 557546745, 745985797])
-review_channel_url = ''     # url of the channel with feedbacks (for example:  https://t.me/+RDE2gELnj6A1NTRa)
-review_channel_id = ''      # id of the channel with feedbacks (for example:   -1001627120479)
-admin_ulr = ''              # admin's url
+# Получаем токен и ID администратора из переменных окружения
+BOT_TOKEN = os.environ.get('BOT_TOKEN', '')
+ADMIN_ID = os.environ.get('ADMIN_ID', '')
 
-db = DB('db.db')            # database name
+# Проверка наличия обязательных переменных
+if not BOT_TOKEN:
+    raise ValueError("BOT_TOKEN не задан в переменных окружения!")
+if not ADMIN_ID:
+    raise ValueError("ADMIN_ID не задан в переменных окружения!")
 
-BOT_TOKEN = ''              # bot's token
-bot = Bot(BOT_TOKEN, parse_mode='html') 
+# Инициализация бота с проверкой токена
+try:
+    bot = Bot(token=BOT_TOKEN, parse_mode='html')
+except Exception as e:
+    raise ValueError(f"Ошибка инициализации бота: {str(e)}. Проверьте токен!")
 
+# Настройки администраторов
+try:
+    admins = [int(ADMIN_ID)]  # Преобразуем ID в число
+except ValueError:
+    raise TypeError(f"ADMIN_ID должен быть числом! Получено: {ADMIN_ID}")
+
+review_channel_url = ''     # url канала с отзывами
+review_channel_id = ''      # id канала с отзывами
+admin_ulr = ''              # ссылка на администратора
+
+# Инициализация базы данных
+db = DB('db.db')            # имя файла базы данных
+
+# Инициализация диспетчера
 storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage)
