@@ -15,7 +15,7 @@ import ssl
 
 async def on_startup(app):
     await bot.set_webhook(
-        url="https://ВАШ_СЕРВИС.onrender.com/webhook",
+        url="https://lite-tg-shop-bot.onrender.com/webhook",
         certificate=open("webhook_cert.pem", "rb") if os.path.exists("webhook_cert.pem") else None
     )
 
