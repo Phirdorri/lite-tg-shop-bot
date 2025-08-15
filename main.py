@@ -20,6 +20,10 @@ WEBHOOK_URL = os.getenv("WEBHOOK_URL") + WEBHOOK_PATH  # Полный URL
 # 2. Создаем aiohttp приложение
 app = get_new_configured_app(dispatcher=dp, path=WEBHOOK_PATH)
 
+# Добавьте этот обработчик
+async def handle_root(request):
+    return web.Response(text="Bot is active!")
+
 async def on_startup(app):
     # 3. Устанавливаем вебхук при запуске
     await bot.set_webhook(
@@ -37,6 +41,8 @@ if __name__ == "__main__":
     # 5. Настройка обработчиков запуска/остановки
     app.on_startup.append(on_startup)
     app.on_shutdown.append(on_shutdown)
+
+    app.router.add_get('/', handle_root)
     
     # 6. Запуск сервера
     port = int(os.environ.get("PORT", 8080))
