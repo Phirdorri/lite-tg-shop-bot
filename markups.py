@@ -1,15 +1,11 @@
 from aiogram import types
 from config import db
 
-
 def rules_mkp():
     mkp = types.InlineKeyboardMarkup()
     btn1 = types.InlineKeyboardButton('Принять', callback_data='rulesok')
-    # btn2 = types.InlineKeyboardButton('Отклонить', callback_data='rulesno')
-    # mkp.add(btn1).add(btn2)
     mkp.add(btn1)
     return mkp
-
 
 def menu_mkp():
     mkp = types.InlineKeyboardMarkup()
@@ -67,7 +63,7 @@ def promocodes():
     promos = db.get_promos()
     if promos != None:
         for i in promos:
-            mkp.add(types.InlineKeyboardButton(f'{i[1]} - {i[2]}%  ({i[3]}/{i[4]})', callback_data=f'promo_{i[0]}'))
+            mkp.add(types.InlineKeyboardButton(f'{i[1]} - {i[2]}% ({i[3]}/{i[4]})', callback_data=f'promo_{i[0]}'))
     mkp.add(types.InlineKeyboardButton(f'[ Добавить промокод ]', callback_data=f'addpromo'))
     mkp.add(types.InlineKeyboardButton(f'Назад', callback_data=f'admin'))
     return mkp
@@ -87,11 +83,9 @@ def botsettings_mkp():
     mkp.add(btn1).add(btn2).add(btn3).add(btn4)
     return mkp
 
-
 def all_users_mkp(page):
     users_list = db.get_all_users()
     mkp = types.InlineKeyboardMarkup(row_width=2)
-
     if page == 1:
         if len(users_list) < 11:
             for i in users_list:
@@ -110,8 +104,24 @@ def all_users_mkp(page):
         try:
             for i in range((page-1)*10, page*10):
                 mkp.add(types.InlineKeyboardButton(f'Пользователь {users_list[i][1]} | {db.get_usernamerev(int(users_list[i][1]))}', callback_data=f'getuser_{users_list[i][1]}_{page}'))
-            mkp.add(types.InlineKeyboardButton('Назад', callback_data=f'userspage_{page-1}'), types.InlineKeyboardButton('Далее', callback_data=f'userspage_{page+1}'))
+            mkp.add(types.InlineKeyboardButton('Назад', callback_data=f'userspage_{page-1}'),
+                    types.InlineKeyboardButton('Далее', callback_data=f'userspage_{page+1}'))
         except:
             mkp.add(types.InlineKeyboardButton('Назад', callback_data=f'userspage_{page-1}'))
     mkp.add(types.InlineKeyboardButton('Отменить', callback_data='admin'))
+    return mkp
+
+# Новый блок: кнопки для функций "Пропустить категорию" и "Безлимитный цифровой"
+def skip_category_mkp():
+    mkp = types.InlineKeyboardMarkup()
+    btn = types.InlineKeyboardButton('Пропустить категорию', callback_data='addgood_skipcat')
+    mkp.add(btn)
+    return mkp
+
+def unlimited_flag_mkp(subcatid=None, catid=None):
+    mkp = types.InlineKeyboardMarkup()
+    mkp.add(types.InlineKeyboardButton('Безлимитный цифровой', callback_data='flag_unlimited'))
+    mkp.add(types.InlineKeyboardButton('Пропустить фото', callback_data='skip_photo'))
+    if subcatid is not None and catid is not None:
+        mkp.add(types.InlineKeyboardButton('Отменить', callback_data=f'adminsubcat_{subcatid}_{catid}'))
     return mkp
