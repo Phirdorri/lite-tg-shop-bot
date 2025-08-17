@@ -560,12 +560,21 @@ async def addgoodcall(call: types.CallbackQuery, state: FSMContext):
         data['SubcatId'] = subcatid
         data['CatId'] = cat_id
     await call.message.delete()
+    # Добавляем возможность пропустить категорию и метку "безлимитный цифровой"
     mkp = types.InlineKeyboardMarkup()
-    btn1 = types.InlineKeyboardButton('Отменить', callback_data=f'adminsubcat_{subcatid}_{cat_id}')
-    mkp.add(btn1)
-    await call.message.answer('Введите название товара:', reply_markup=mkp)
+    mkp.add(types.InlineKeyboardButton('Пропустить категорию', callback_data='addgood_skipcat'))
+    mkp.add(types.InlineKeyboardButton('Отменить', callback_data=f'adminsubcat_{subcatid}_{cat_id}'))
+    await call.message.answer('Введите название товара (или пропустите категорию):', reply_markup=mkp)
     await AddGood.next()
 
+@dp.callback_query_handler(text='addgood_skipcat', state=AddGood.Name)
+async def addgood_skipcat(call: types.CallbackQuery, state: FSMContext):
+    # Пропускаем назначение subcat → считаем None
+    async with state.proxy() as data:
+        data['SubcatId'] = None
+        data['CatId'] = None
+    await call.message.delete()
+    await call.message.answer('Категория пропущена. Введите название товара:', reply_markup=types.ReplyKeyboardRemove())
 
 @dp.message_handler(state=AddGood.Name)
 async def addgoodnamemsg(message: types.Message, state: FSMContext):
@@ -583,13 +592,25 @@ async def addgoodnamemsg(message: types.Message, state: FSMContext):
 async def addgooddescriptionmsg(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
         data['Description'] = message.text
-    subcatid = data['SubcatId']
-    cat_id = data['CatId']
-    mkp = types.InlineKeyboardMarkup()
-    btn1 = types.InlineKeyboardButton('Пропустить', callback_data='skip')
-    btn2 = types.InlineKeyboardButton('Отменить', callback_data=f'adminsubcat_{subcatid}_{cat_id}')
-    mkp.add(btn1).add(btn2)
-    await message.answer('Отправьте фото или нажмите пропустить', reply_markup=mkp)
+        # Добавляем кнопку "Безлимитный цифровой" перед загрузкой фото
+        subcatid = data['SubcatId']
+        cat_id = data['CatId']
+        mkp = types.InlineKeyboardMarkup()
+        mkp.add(types.InlineKeyboardButton('Безлимитный цифровой', callback_data='flag_unlimited'))
+        mkp.add(types.InlineKeyboardButton('Пропустить фото', callback_data='skip_photo'))
+        mkp.add(types.InlineKeyboardButton('Отменить', callback_data=f'adminsubcat_{subcatid}_{cat_id}'))
+        await message.answer('Отправьте фото или выберите опцию:', reply_markup=mkp)
+        # Переходим в состояние Photo
+        await AddGood.next()
+
+@dp.callback_query_handler(text='flag_unlimited', state=AddGood.Photo)
+async def flag_unlimit_call(call: types.CallbackQuery, state: FSMContext):
+    # Отмечаем в стейт, что товар безлимитный
+    async with state.proxy() as data:
+        data['IsUnlimited'] = True
+        data['Photo'] = 'None'
+    await call.message.delete()
+    await call.message.answer('Товар отмечен как цифровой безлимитный. Введите цену:', reply_markup=types.ReplyKeyboardRemove())
     await AddGood.next()
 
 @dp.message_handler(content_types='photo', state=AddGood.Photo)
@@ -662,7 +683,12 @@ async def addgoodpricecalladd(call: types.CallbackQuery, state: FSMContext):
     description = data['Description']
     photo = data['Photo']
     price = data['Price']
-    db.add_good(subcat_id, name, description, photo, price)
+    new_id = db.add_good(subcat_id, name, description, photo, price)
+    # Устанавливаем флаг, если чекбокс был отмечен
+    async with state.proxy() as data:
+        if data.get('IsUnlimited'):
+            db.cursor.execute('UPDATE goods SET is_unlimited=1 WHERE id=?', (new_id,))
+            db.connection.commit()
     await call.message.delete()
     await call.message.answer('Товар был успешно добавлен! Вы были возвращены в админ-панель', reply_markup=admin_mkp())
     await state.finish()
