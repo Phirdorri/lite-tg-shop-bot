@@ -52,6 +52,7 @@ class AddGood(StatesGroup):
     Description = State()
     Photo = State()
     Price = State()
+    IsUnlimited = State()
 
 class AddInstance(StatesGroup):
     GoodId = State()
