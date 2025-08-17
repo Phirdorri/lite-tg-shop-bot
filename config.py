@@ -32,6 +32,8 @@ admin_ulr = ''              # ссылка на администратора
 
 # Инициализация базы данных
 db = DB('db.db')            # имя файла базы данных
+# Обновляем структуру для поддержки простых товаров (categoryid, is_unlimited)
+db._ensure_simple_goods_fields()
 
 # Инициализация диспетчера
 storage = MemoryStorage()
