@@ -9,9 +9,39 @@ class DB:
     def __init__(self, database):
         self.connection = sqlite3.connect(database, check_same_thread=False)
         self.cursor = self.connection.cursor()
-
         self.connection.isolation_level = None
+        # При инициализации вызываем обновление структуры базы
+        self._ensure_simple_goods_fields()
 
+    def _ensure_simple_goods_fields(self):
+        """Добавляем поля categoryid и is_unlimited, если они отсутствуют."""
+        with self.connection:
+            lock.acquire(True)
+            try:
+                # Получаем список колонок таблицы goods
+                self.cursor.execute("PRAGMA table_info(goods)")
+                cols = [row[1] for row in self.cursor.fetchall()]
+                # Добавляем categoryid, если его нет
+                if 'categoryid' not in cols:
+                    self.cursor.execute("ALTER TABLE goods ADD COLUMN categoryid INTEGER")
+                # Добавляем is_unlimited, если его нет
+                if 'is_unlimited' not in cols:
+                    self.cursor.execute("ALTER TABLE goods ADD COLUMN is_unlimited INTEGER DEFAULT 0")
+            finally:
+                lock.release()
+
+    def init_tables(self):
+        # создаём новые поля, если их ещё нет
+        with self.connection:
+            self.cursor.execute("PRAGMA table_info(goods)")
+            cols = [i[1] for i in self.cursor.fetchall()]
+            if 'subcategoryid' not in cols:
+                self.cursor.execute("ALTER TABLE goods ADD COLUMN subcategoryid INTEGER")
+            if 'categoryid' not in cols:
+                self.cursor.execute("ALTER TABLE goods ADD COLUMN categoryid INTEGER")
+            if 'is_unlimited' not in cols:
+                self.cursor.execute("ALTER TABLE goods ADD COLUMN is_unlimited INTEGER DEFAULT 0")
+        # После этого можно вызывать init_tables() при старте приложения        
 
     def add_user(self, user_id, username):
         with self.connection:
@@ -217,6 +247,37 @@ class DB:
                 return result
             except:
                 self.connection.rollback()
+            finally:
+                lock.release()
+
+    def get_goods_without_cat(self):
+        """Возвращает товары без подкатегории (простой товар без категории)."""
+        with self.connection:
+            lock.acquire(True)
+            try:
+                self.cursor.execute('SELECT id, name, description, price, photo FROM goods WHERE subcategoryid IS NULL OR subcategoryid=0')
+                return self.cursor.fetchall()
+            finally:
+                lock.release()
+
+    def get_goods_without_subcat(self, catid):
+        """Возвращает товары с указанной категорией, но без подкатегории."""
+        with self.connection:
+            lock.acquire(True)
+            try:
+                self.cursor.execute('SELECT id, name, description, price, photo FROM goods WHERE categoryid=? AND (subcategoryid IS NULL OR subcategoryid=0)', (catid,))
+                return self.cursor.fetchall()
+            finally:
+                lock.release()
+
+    def get_cat_id_by_good(self, goodid):
+        """Возвращает categoryid товара или None."""
+        with self.connection:
+            lock.acquire(True)
+            try:
+                self.cursor.execute('SELECT categoryid FROM goods WHERE id=?', (goodid,))
+                r = self.cursor.fetchone()
+                return r[0] if r else None
             finally:
                 lock.release()
     
@@ -720,13 +781,25 @@ class DB:
                 lock.release()
 
     def add_good(self, subcatid, name, description, photo, price):
+        """Добавляет товар. subcatid может быть None — тогда товар без категории/подкатегории."""
         with self.connection:
+            lock.acquire(True)
             try:
-                lock.acquire(True)
-                self.cursor.execute('INSERT INTO goods (subcategoryid, name, description, price, photo) VALUES (?, ?, ?, ?, ?)', (subcatid, name, description, price, photo))
-                return
+                # Определяем categoryid, если есть subcategory
+                catid = None
+                if isinstance(subcatid, int):
+                    self.cursor.execute('SELECT categoryid FROM subcategories WHERE id=?', (subcatid,))
+                    row = self.cursor.fetchone()
+                    catid = row[0] if row else None
+                # Вставляем новый товар, флаг is_unlimited = 0 по умолчанию
+                self.cursor.execute(
+                    'INSERT INTO goods (subcategoryid, name, description, price, photo, categoryid, is_unlimited) VALUES (?, ?, ?, ?, ?, ?, 0)',
+                    (subcatid, name, description, price, photo, catid)
+                )
+                self.connection.commit()
             except:
                 self.connection.rollback()
+                raise
             finally:
                 lock.release()
 
@@ -897,4 +970,3 @@ class DB:
                 self.connection.rollback()
             finally:
                 lock.release()
-    
