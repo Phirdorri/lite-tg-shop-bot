@@ -597,11 +597,11 @@ async def addgooddescriptionmsg(message: types.Message, state: FSMContext):
         # Добавляем кнопку "Безлимитный цифровой" перед загрузкой фото
         subcatid = data['SubcatId']
         cat_id = data['CatId']
-        mkp = types.InlineKeyboardMarkup()
-        mkp.add(types.InlineKeyboardButton('Безлимитный цифровой', callback_data='flag_unlimited'))
-        mkp.add(types.InlineKeyboardButton('Пропустить фото', callback_data='skip_photo'))
-        mkp.add(types.InlineKeyboardButton('Отменить', callback_data=f'adminsubcat_{subcatid}_{cat_id}'))
-        await message.answer('Отправьте фото или выберите опцию:', reply_markup=mkp)
+        # Используем готовую клавиатуру skip_photo_mkp() из markups.py
+        await message.answer(
+        'Отправьте фото товара (или нажмите «Пропустить»):',
+        reply_markup=skip_photo_mkp()
+        )
         # Переходим в состояние Photo
         await AddGood.next()
 
