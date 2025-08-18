@@ -32,8 +32,11 @@ def get_faq_user():
 def get_categories_admin():  
     cat_list = db.get_all_cat_adm()  
     mkp = types.InlineKeyboardMarkup()  
-    for i in cat_list:  
-        mkp.add(types.InlineKeyboardButton(i[1], callback_data=f'admincat_{i[0]}'))  
+    for i in cat_list:
+        mkp.add(types.InlineKeyboardButton(i[1], callback_data=f'admincat_{i[0]}'))
+    # ➕ новая кнопка: «товар без категории»
+    mkp.add(types.InlineKeyboardButton('➕ Товар без категории', callback_data='addgood_nocat'))
+    # старая кнопка
     mkp.add(types.InlineKeyboardButton('➕ Добавить категорию', callback_data='addcat'))  
     mkp.add(types.InlineKeyboardButton(' Вернуться в админ-панель', callback_data='admin'))  
     return mkp
