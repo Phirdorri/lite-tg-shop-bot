@@ -803,6 +803,29 @@ class DB:
             finally:
                 lock.release()
 
+    # --- ↓↓↓ НОВОЕ: добавление товара без категории ↓↓↓
+    def add_good_nocat(self, name, description, photo, price, is_unlimited=0):
+        with self.conn:
+            self.cur.execute(
+                "INSERT INTO goods (name, description, photo, price, subcategoryid, categoryid, is_unlimited) "
+                "VALUES (?, ?, ?, ?, NULL, NULL, ?)",
+                (name, description, photo, price, int(is_unlimited))
+            )
+            self.conn.commit()
+            return self.cur.lastrowid
+
+    # Переключатель флага «безлимитный»
+    def set_good_unlimited(self, goodid: int, flag: int):
+        with self.conn:
+            self.cur.execute("UPDATE goods SET is_unlimited=? WHERE id=?", (int(flag), int(goodid)))
+            self.conn.commit()
+
+    # Проверка флага «безлимитный»
+    def is_good_unlimited(self, goodid: int) -> int:
+        self.cur.execute("SELECT COALESCE(is_unlimited,0) FROM goods WHERE id=?", (int(goodid),))
+        row = self.cur.fetchone()
+        return row[0] if row else 0
+
     def change_namegood(self, goodid, name):
         with self.connection:
             try:
