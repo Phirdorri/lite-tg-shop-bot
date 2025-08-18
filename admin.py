@@ -2,8 +2,10 @@ import os
 from config import dp, admins, db, bot
 from aiogram import types
 from aiogram.dispatcher import FSMContext
+from states import AddGood
+from functions import send_admin_good
 
-from markups import admin_mkp, cancel_adm_mkp, all_users_mkp, del_promo, promo_admin_mkp, promocodes, botsettings_mkp
+from markups import admin_mkp, cancel_adm_mkp, all_users_mkp, del_promo, promo_admin_mkp, promocodes, botsettings_mkp, skip_photo_mkp
 from functions import get_faq_admin, get_categories_admin, get_good_instances_admin, get_subcategories_admin, get_goods_admin, send_admin_good
 from states import AddInstance, AddPromo, NewFaq, FaqName, FaqText, AddGood, ChangePriceGood, ChangeRules, ChangeToken, AddCatRus, ChangeNamecatRus, AddSubcatRus, ChangeNamesubcatRus, ChangeNameGoodRus, ChangeDescGoodRus, RassilkaAll
 
@@ -935,3 +937,42 @@ async def delSubcatCallGo(call: types.CallbackQuery):
     good_info = db.get_goodinfo(int(goodId))
     db.del_all_instances(goodId)
     await call.message.answer(f'Все экземпляры для товара {good_info[0]} удалены, вы возвращены в админ-панель', reply_markup=admin_mkp())
+
+# --- ↓↓↓ ДОБАВЛЕНО: Простой товар и вспомогательные хендлеры ↓↓↓
+
+# 1) Старт создания товара БЕЗ категории
+@dp.callback_query_handler(text='addgood_nocat')
+async def addgood_nocat(call: types.CallbackQuery, state: FSMContext):
+    await call.answer()
+    await call.message.delete()
+    # Сразу переходим к вводу названия, категории/подкатегории нет
+    async with state.proxy() as data:
+        data['catId'] = None
+        data['subcatId'] = None
+    await AddGood.Name.set()
+    await call.message.answer('Введите название товара (без категории):')
+
+# 2) Пропуск фото на шаге AddGood.Photo
+@dp.callback_query_handler(text='skip_photo', state=AddGood.Photo)
+async def skip_photo(call: types.CallbackQuery, state: FSMContext):
+    await call.answer('Фото будет пропущено')
+    async with state.proxy() as data:
+        data['photo'] = 'None'
+    await AddGood.Price.set()
+    # Уберём клавиатуру под сообщением, если была
+    try:
+        await call.message.edit_reply_markup()
+    except Exception:
+        pass
+    await call.message.answer('Введите цену товара, например 199.00')
+
+# 3) Переключатель «Безлимитный» в карточке товара
+@dp.callback_query_handler(lambda c: c.data.startswith('toggle_unlim_'))
+async def toggle_unlim(call: types.CallbackQuery):
+    goodid = int(call.data.split('_')[-1])
+    current = db.is_good_unlimited(goodid)
+    db.set_good_unlimited(goodid, 0 if current else 1)
+    await call.answer('Готово')
+    # Перерисуем карточку, чтобы обновить кнопку
+    await send_admin_good(goodid, call.from_user.id)
+# --- ↑↑↑ ДОБАВЛЕНО ↑↑↑
