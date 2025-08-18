@@ -646,35 +646,34 @@ async def addgoodphotoskipcall(call: types.CallbackQuery, state: FSMContext):
 
 @dp.message_handler(state=AddGood.Price)
 async def addgoodprice(message: types.Message, state: FSMContext):
+    # 1) Валидируем цену
+    text = message.text.strip()
     try:
-        price = float(message.text)
-        async with state.proxy() as data:
-            data['Price'] = price
-        subcatid = data['SubcatId']
-        cat_id = data['CatId'] 
-        name = data['Name']
-        description = data['Description']
-        mkp = types.InlineKeyboardMarkup()
-        btn1 = types.InlineKeyboardButton('Добавить', callback_data='add')
-        btn2 = types.InlineKeyboardButton('Отменить', callback_data=f'adminsubcat_{subcatid}_{cat_id}')
-        mkp.add(btn1).add(btn2)
-        
-        if data['Photo'] == 'None':
-            await message.answer(f'Название товара: <code>{name}</code>\nОписание: <code>{description}</code>\nЦена: <code>{price}</code>', reply_markup=mkp)
-        else:
-            photo = data['Photo']
-            await message.answer_photo(open(f'{os.getcwd()}/images/{photo}', 'rb'), caption=f'Название товара: <code>{name}</code>\nОписание: <code>{description}</code>\nЦена: <code>{price}</code>', reply_markup=mkp)
+        price = float(text.replace(',', '.'))
+    except ValueError:
+        return await message.answer(
+            'Вы неправильно ввели цену! Используйте целое число или десятичное, например: <code>249.50</code>'
+        )
 
-    except Exception as ex:
-        print(ex)
-        async with state.proxy() as data:
-            pass
-        subcatid = data['SubcatId']
-        cat_id = data['CatId'] 
-        mkp = types.InlineKeyboardMarkup()
-        btn1 = types.InlineKeyboardButton('Отменить', callback_data=f'adminsubcat_{subcatid}_{cat_id}')
-        mkp.add(btn1)
-        await message.answer('Вы неправильно ввели цену! Введите цену целым числом, либо через точку, например: <code>249.50</code>')
+    # 2) Собираем данные из state
+    async with state.proxy() as data:
+        name = data.get('Name') or data.get('name') or 'Без названия'
+        description = data.get('Description') or data.get('description') or ''
+        photo = data.get('Photo') or data.get('photo') or 'None'
+        subcat = data.get('SubcatId')
+
+    # 3) Сохраняем товар: без категории или с категорией
+    if subcat is None:
+        good_id = db.add_good_nocat(name, description, photo, price)
+    else:
+        good_id = db.add_good(subcat, name, description, photo, price)
+
+    # Завершаем FSM
+    await state.finish()
+
+    # 4) Отправляем подтверждение и показываем админ-карточку товара
+    await message.answer('Товар сохранён ✅')
+    await send_admin_good(good_id, message.from_user.id)
 
 @dp.callback_query_handler(text='add', state=AddGood.Price)
 async def addgoodpricecalladd(call: types.CallbackQuery, state: FSMContext):
