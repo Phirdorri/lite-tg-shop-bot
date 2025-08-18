@@ -127,7 +127,6 @@ def unlimited_flag_mkp(subcatid=None, catid=None):
     return mkp
 
 # --- ↓↓↓ ДОБАВЛЕНО: сервисные клавиатуры для простого товара ↓↓↓
-from aiogram import types
 
 def skip_photo_mkp():
     """
