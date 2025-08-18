@@ -112,7 +112,7 @@ async def promoAdding(message: types.Message, state: FSMContext):
         await message.answer(f'Промокод <b>{promoName}</b> успешно добавлен\nВы в админ-панели', reply_markup=admin_mkp())
         await state.finish()
     except:
-        await message.answer("Промокод введен в неверном формате! Попробуйте зановов таком формате (каждое новое значение на новой строке):\n\nНазвание промокода одним словом (рекомендуется вводить КАПСОМ)\nПроцент скидки целым числом\nЛимит активаций целым числом\n\nНапример:\nPROMONAME\n15\n5", reply_markup=promo_admin_mkp())
+        await message.answer("Промокод введен в неверном формате! Попробуйте заново в таком формате (каждое новое значение на новой строке):\n\nНазвание промокода одним словом (рекомендуется вводить КАПСОМ)\nПроцент скидки целым числом\nЛимит активаций целым числом\n\nНапример:\nPROMONAME\n15\n5", reply_markup=promo_admin_mkp())
 
 
 
