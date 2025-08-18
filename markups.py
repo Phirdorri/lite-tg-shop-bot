@@ -125,3 +125,37 @@ def unlimited_flag_mkp(subcatid=None, catid=None):
     if subcatid is not None and catid is not None:
         mkp.add(types.InlineKeyboardButton('Отменить', callback_data=f'adminsubcat_{subcatid}_{catid}'))
     return mkp
+
+# --- ↓↓↓ ДОБАВЛЕНО: сервисные клавиатуры для простого товара ↓↓↓
+from aiogram import types
+
+def skip_photo_mkp():
+    """
+    Клавиатура для шага с фото товара: позволяет пропустить фото.
+    """
+    mkp = types.InlineKeyboardMarkup()
+    mkp.add(types.InlineKeyboardButton('📎 Пропустить фото', callback_data='skip_photo'))
+    return mkp
+
+def unlimited_flag_mkp(current_on: bool = False, good_id: int = None):
+    """
+    Универсальная клавиатура «Безлимитный».
+    Если good_id указан — используется в карточке товара (переключатель toggle_unlim_<id>).
+    Если good_id не указан — может использоваться в мастере создания (unlim_on/unlim_off).
+    Сейчас мы используем вариант с good_id (переключатель в карточке товара).
+    """
+    if good_id is not None:
+        text = '✅ Безлимитный: Вкл' if current_on else '❌ Безлимитный: Выкл'
+        cb = f'toggle_unlim_{good_id}'
+        mkp = types.InlineKeyboardMarkup()
+        mkp.add(types.InlineKeyboardButton(text, callback_data=cb))
+        return mkp
+    else:
+        # Резерв на будущее (если захочешь спрашивать флаг прямо в мастере создания)
+        mkp = types.InlineKeyboardMarkup()
+        if current_on:
+            mkp.add(types.InlineKeyboardButton('❌ Безлимитный: Выкл', callback_data='unlim_off'))
+        else:
+            mkp.add(types.InlineKeyboardButton('✅ Безлимитный: Вкл', callback_data='unlim_on'))
+        return mkp
+# --- ↑↑↑ ДОБАВЛЕНО ↑↑↑
