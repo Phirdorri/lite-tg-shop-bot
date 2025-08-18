@@ -2,6 +2,16 @@ import os
 from config import db, bot  
 from aiogram import types
 
+async def anti_flood(message: types.Message, **kwargs):
+    """
+    Обработчик троттлинга: даёт ответ, если сообщения слишком частые.
+    Используется с декоратором @dp.throttled(...) в aiogram v2.
+    """
+    try:
+        await message.answer("Слишком часто! Подождите немного ⏳")
+    except Exception:
+        pass
+
 def get_faq_admin():  
     faq_list = db.get_all_faq_adm()  
     mkp = types.InlineKeyboardMarkup()  
