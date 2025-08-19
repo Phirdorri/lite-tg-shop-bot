@@ -14,25 +14,25 @@ class DB:
         self._ensure_simple_goods_fields()
 
     def _ensure_simple_goods_fields(self):
-    """Мягкая миграция: добавляем новые поля, если их ещё нет."""
-    with self.connection:
-        lock.acquire(True)
-        try:
-            # Смотрим, какие колонки есть в таблице goods
-            self.cursor.execute("PRAGMA table_info(goods)")
-            cols = [row[1] for row in self.cursor.fetchall()]
+        """Мягкая миграция: добавляем новые поля, если их ещё нет."""
+        with self.connection:
+            lock.acquire(True)
+            try:
+                # Смотрим, какие колонки есть в таблице goods
+                self.cursor.execute("PRAGMA table_info(goods)")
+                cols = [row[1] for row in self.cursor.fetchall()]
 
-            # Проверяем и добавляем categoryid, если нужно
-            if 'categoryid' not in cols:
-                self.cursor.execute("ALTER TABLE goods ADD COLUMN categoryid INTEGER")
+                # Проверяем и добавляем categoryid, если нужно
+                if 'categoryid' not in cols:
+                    self.cursor.execute("ALTER TABLE goods ADD COLUMN categoryid INTEGER")
 
-            # Проверяем и добавляем is_unlimited, если нужно
-            if 'is_unlimited' not in cols:
-                self.cursor.execute("ALTER TABLE goods ADD COLUMN is_unlimited INTEGER DEFAULT 0")
+                # Проверяем и добавляем is_unlimited, если нужно
+                if 'is_unlimited' not in cols:
+                    self.cursor.execute("ALTER TABLE goods ADD COLUMN is_unlimited INTEGER DEFAULT 0")
 
-            self.connection.commit()
-        finally:
-            lock.release()
+                self.connection.commit()
+            finally:
+                lock.release()
 
     def init_tables(self):
         # создаём новые поля, если их ещё нет
