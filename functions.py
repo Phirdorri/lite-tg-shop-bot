@@ -128,11 +128,10 @@ async def send_admin_good(goodid, user_id):
         await bot.send_message(user_id, text, reply_markup=mkp)
 
 async def send_good(step, subcatid, user_id):
-    # если subcatid == 'none', показываем товары без категории
+    # Определяем список товаров по subcatid
     if subcatid == 'none':
         goods = db.get_goods_without_cat()
     elif isinstance(subcatid, str) and subcatid.startswith('none_'):
-        # товары без подкатегории внутри категории
         cat_id = int(subcatid.split('_')[1])
         goods = db.get_goods_without_subcat(cat_id)
         subcatid = None
@@ -146,47 +145,51 @@ async def send_good(step, subcatid, user_id):
         await bot.send_message(user_id, 'К сожалению, тут пусто', reply_markup=back_mkp)
         return
 
-    # защита индекса
+    # Защита индекса и выбор товара
     step = max(0, min(step, len(goods) - 1))
     g = goods[step]
     name, description, price, photo, goodid = g[1], g[2], float(g[3]), g[4], g[0]
     price_str = f'{price:.2f}'
 
+    # Создаём клавиатуру навигации
     mkp = types.InlineKeyboardMarkup()
-
-    # навигация
     if step > 0:
         mkp.insert(types.InlineKeyboardButton('⬅', callback_data=f'catback_{subcatid}_{step-1}'))
     mkp.insert(types.InlineKeyboardButton(f'{step+1}/{len(goods)}', callback_data='none'))
     if step + 1 < len(goods):
         mkp.insert(types.InlineKeyboardButton('➡', callback_data=f'catnext_{subcatid}_{step+1}'))
 
-    # логика наличия: либо есть экземпляры, либо товар безлимитный — тогда "Купить" доступна
+    # Проверяем наличие товара (или безлимитный)
     try:
-        is_unlim = bool(db.is_good_unlimited(int(goodid)))
+        is_unlim = db.is_good_unlimited(int(goodid))
     except Exception:
         is_unlim = False
+
     has_instances = bool(db.get_good_instances(goodid))
+    btn_back = types.InlineKeyboardButton(
+        'Назад',
+        callback_data=f'usercat_{db.get_cat_id_by_good(goodid) or "none"}'
+    )
 
-    btn_back = types.InlineKeyboardButton('Назад', callback_data=f'usercat_{db.get_cat_id_by_good(goodid) or "none"}')
-
+    #  Если товар безлимитный или есть в наличии — показываем кнопку "Купить"
     if is_unlim or has_instances:
-        # Товар доступен — показываем "Купить"
-        mkp.add(types.InlineKeyboardButton('Купить', callback_data=f'buyGood_{goodid}_{subcatid or "none"}'))
-        # (по желанию можно добавить "Назад" вторым рядом)
-        # mkp.add(btn_back)
+        mkp.add(types.InlineKeyboardButton(
+            'Купить',
+            callback_data=f'buyGood_{goodid}_{subcatid or "none"}'
+        ))
         sold_text = ''
     else:
-        # Нет ни экземпляров, ни безлимитности — только "Назад"
         mkp.add(btn_back)
         sold_text = '\n\nНА ДАННЫЙ МОМЕНТ ТОВАРА НЕТ В НАЛИЧИИ ❗️'
 
+    # Подготавливаем текст
     caption = (
         f'<b>Название товара</b>: <code>{name}</code>\n'
         f'<b>Описание</b>: {description}\n'
-        f'<b>Цена</b>: <code>{price_str}</code> ${sold_text}'
+        f'<b>Цена</b>: <code>{price_str}</code>{sold_text}'
     )
 
+    # Отправляем либо фото товара, либо просто текст
     if photo and photo != 'None':
         try:
             with open(f'{os.getcwd()}/images/{photo}', 'rb') as f:
@@ -195,4 +198,5 @@ async def send_good(step, subcatid, user_id):
             await bot.send_message(user_id, caption, reply_markup=mkp)
     else:
         await bot.send_message(user_id, caption, reply_markup=mkp)
+
 
