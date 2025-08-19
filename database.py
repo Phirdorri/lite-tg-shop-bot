@@ -809,14 +809,20 @@ class DB:
 
     # --- ↓↓↓ НОВОЕ: добавление товара без категории ↓↓↓
     def add_good_nocat(self, name, description, photo, price, is_unlimited=0):
-        with self.conn:
-            self.cur.execute(
-                "INSERT INTO goods (name, description, photo, price, subcategoryid, categoryid, is_unlimited) "
-                "VALUES (?, ?, ?, ?, NULL, NULL, ?)",
+        try:
+            lock.acquire(True)
+            self.cursor.execute(
+                'INSERT INTO goods (name, description, photo, price, subcategoryid, categoryid, is_unlimited) '
+                'VALUES (?, ?, ?, ?, NULL, NULL, ?)',
                 (name, description, photo, price, int(is_unlimited))
             )
-            self.conn.commit()
-            return self.cur.lastrowid
+            self.connection.commit()
+            return self.cursor.lastrowid
+        except Exception:
+            self.connection.rollback()
+            raise
+        finally:
+            lock.release()
 
     # Переключатель флага «безлимитный»
     def set_good_unlimited(self, goodid: int, flag: int):
