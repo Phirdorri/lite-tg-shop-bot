@@ -552,22 +552,34 @@ async def changenamesubcatrusmsg(message: types.Message, state: FSMContext):
     await state.finish()
 
 
-@dp.callback_query_handler(text_contains='addgood_')
+@dp.callback_query_handler(lambda call: call.data.startswith('addgood'))
 async def addgoodcall(call: types.CallbackQuery, state: FSMContext):
-    subcatid = call.data.split('_')[1]
-    cat_id = call.data.split('_')[2]
-    await AddGood.SubcatId.set()
-    await AddGood.CatId.set()
-    async with state.proxy() as data:
-        data['SubcatId'] = subcatid
-        data['CatId'] = cat_id
+    parts = call.data.split('_')
+
+    # Обработка: "+ Товар без категории"
+    if len(parts) == 2 and parts[1] == 'nocat':
+        await state.update_data(SubcatId=None, CatId=None)
+        await call.message.delete()
+        await call.message.answer('Введите название товара:')
+        await AddGood.Name.set()
+        return
+
+    # Обычный сценарий: добавление товара с категорией и подкатегорией
+    try:
+        subcatid = parts[1]
+        cat_id = parts[2]
+    except IndexError:
+        await call.answer('Ошибка: не могу прочитать категорию. Попробуйте заново.', show_alert=True)
+        return
+
+    await state.update_data(SubcatId=subcatid, CatId=cat_id)
     await call.message.delete()
-    # Добавляем возможность пропустить категорию и метку "безлимитный цифровой"
+    # Предлагаем пропустить категорию и продолжить
     mkp = types.InlineKeyboardMarkup()
     mkp.add(types.InlineKeyboardButton('Пропустить категорию', callback_data='addgood_skipcat'))
     mkp.add(types.InlineKeyboardButton('Отменить', callback_data=f'adminsubcat_{subcatid}_{cat_id}'))
     await call.message.answer('Введите название товара (или пропустите категорию):', reply_markup=mkp)
-    await AddGood.next()
+    await AddGood.Name.set()
 
 @dp.callback_query_handler(text='addgood_skipcat', state=AddGood.Name)
 async def addgood_skipcat(call: types.CallbackQuery, state: FSMContext):
