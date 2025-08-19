@@ -807,8 +807,11 @@ class DB:
             finally:
                 lock.release()
 
-    # --- ↓↓↓ НОВОЕ: добавление товара без категории ↓↓↓
-    def add_good_nocat(self, name, description, photo, price, is_unlimited=0):
+    def add_good_nocat(self, name, description, photo, price, is_unlimited=1):
+        """
+        Добавляет товар полностью без категории/подкатегории.
+        По умолчанию делаем его БЕЗЛИМИТНЫМ (is_unlimited=1).
+        """
         try:
             lock.acquire(True)
             self.cursor.execute(
@@ -824,17 +827,37 @@ class DB:
         finally:
             lock.release()
 
-    # Переключатель флага «безлимитный»
     def set_good_unlimited(self, goodid: int, flag: int):
-        with self.conn:
-            self.cur.execute("UPDATE goods SET is_unlimited=? WHERE id=?", (int(flag), int(goodid)))
-            self.conn.commit()
+        """
+        Устанавливает флаг безлимитности для товара.
+        """
+        try:
+            lock.acquire(True)
+            self.cursor.execute(
+                "UPDATE goods SET is_unlimited = ? WHERE id = ?",
+                (1 if flag else 0, int(goodid))
+            )
+            self.connection.commit()
+        except Exception:
+            self.connection.rollback()
+            raise
+        finally:
+            lock.release()
 
-    # Проверка флага «безлимитный»
-    def is_good_unlimited(self, goodid: int) -> int:
-        self.cur.execute("SELECT COALESCE(is_unlimited,0) FROM goods WHERE id=?", (int(goodid),))
-        row = self.cur.fetchone()
-        return row[0] if row else 0
+    def is_good_unlimited(self, goodid: int) -> bool:
+        """
+        Проверяет, является ли товар безлимитным.
+        """
+        try:
+            lock.acquire(True)
+            self.cursor.execute(
+                "SELECT COALESCE(is_unlimited, 0) FROM goods WHERE id = ?",
+                (int(goodid),)
+            )
+            row = self.cursor.fetchone()
+            return bool(row[0]) if row else False
+        finally:
+            lock.release()
 
     def change_namegood(self, goodid, name):
         with self.connection:
