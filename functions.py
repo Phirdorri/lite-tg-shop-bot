@@ -91,48 +91,39 @@ def get_good_instances_admin(goodId):
     return mkp
 
 async def send_admin_good(goodid, user_id):
-    good_info = db.get_goodinfo(int(goodid))
-    # безопасно узнаём флаг безлимитности
-    try:
-        is_unlim = bool(db.is_good_unlimited(int(goodid)))
-    except Exception:
-        is_unlim = False
-
-    name, description, price, photo = good_info[0], good_info[1], float(good_info[2]), good_info[3]
-    price_str = f"{price:.2f}"
+    """
+    Карточка товара в админке + кнопка «Безлимитный …».
+    """
+    good_info = db.get_goodinfo(int(goodid))  # ожидаем (name, desc, price, photo, ...)
+    is_unlim = db.is_good_unlimited(goodid)
 
     mkp = types.InlineKeyboardMarkup()
-    # Тумблер безлимитности (переключатель)
     btn_unlim = types.InlineKeyboardButton(
-        f"Безлимитный: {'Вкл' if is_unlim else 'Выкл'}",
+        f"Безлимитный {'вкл' if is_unlim else 'выкл'}",
         callback_data=f"toggle_unlim_{goodid}"
     )
+    btns = [
+        types.InlineKeyboardButton('Экземпляры товара', callback_data=f'instances_{goodid}'),
+        types.InlineKeyboardButton('Название', callback_data=f'changegoodname_{goodid}'),
+        types.InlineKeyboardButton('Описание', callback_data=f'changegooddesc_{goodid}'),
+        types.InlineKeyboardButton('Цену', callback_data=f'changegoodprice_{goodid}'),
+        types.InlineKeyboardButton('Удалить', callback_data=f'delgood_{goodid}'),
+        types.InlineKeyboardButton('Отменить', callback_data='admin'),
+    ]
+    # ВАЖНО: сначала — кнопка безлимитности
     mkp.add(btn_unlim)
+    for b in btns:
+        mkp.add(b)
 
-    # Кнопку "Экземпляры товара" показываем только если товар НЕ безлимитный
-    if not is_unlim:
-        mkp.add(types.InlineKeyboardButton('Экземпляры товара', callback_data=f'instances_{goodid}'))
-
-    # Остальные кнопки админа
-    mkp.add(types.InlineKeyboardButton('Название',   callback_data=f'changegoodname_{goodid}'))
-    mkp.add(types.InlineKeyboardButton('Описание',   callback_data=f'changegooddesc_{goodid}'))
-    mkp.add(types.InlineKeyboardButton('Цену',       callback_data=f'changegoodprice_{goodid}'))
-    mkp.add(types.InlineKeyboardButton('Удалить',    callback_data=f'delgood_{goodid}'))
-    mkp.add(types.InlineKeyboardButton('Отменить',   callback_data='admin'))
-
+    name, description, price, photo = good_info[0], good_info[1], good_info[2], good_info[3]
     text = (
         f'Название товара: <code>{name}</code>\n'
         f'Описание товара: <code>{description}</code>\n'
-        f'Цена: <code>{price_str}</code>\n'
-        f'Статус: <b>{"Безлимитный ✅" if is_unlim else "Ограниченный по экземплярам"}</b>\n'
+        f'Цена: <code>{price}</code>\n'
+        f'Безлимитный: <b>{"Да" if is_unlim else "Нет"}</b>'
     )
-
     if photo and photo != 'None':
-        try:
-            with open(f'{os.getcwd()}/images/{photo}', 'rb') as f:
-                await bot.send_photo(user_id, f, caption=text, reply_markup=mkp)
-        except Exception:
-            await bot.send_message(user_id, text, reply_markup=mkp)
+        await bot.send_photo(user_id, open(f'{os.getcwd()}/images/{photo}', 'rb'), caption=text, reply_markup=mkp)
     else:
         await bot.send_message(user_id, text, reply_markup=mkp)
 
