@@ -977,13 +977,30 @@ async def skip_photo(call: types.CallbackQuery, state: FSMContext):
         pass
     await call.message.answer('Введите цену товара, например 199.00')
 
-# 3) Переключатель «Безлимитный» в карточке товара
 @dp.callback_query_handler(lambda c: c.data.startswith('toggle_unlim_'))
 async def toggle_unlim(call: types.CallbackQuery):
-    goodid = int(call.data.split('_')[-1])
+    """
+    Переключатель флага "Безлимитный" для товара.
+    Формат callback_data: toggle_unlim_{goodid}
+    """
+    parts = call.data.split('_')
+    if len(parts) < 3:
+        return await call.answer("Ошибка: некорректные данные кнопки", show_alert=True)
+
+    try:
+        goodid = int(parts[2])
+    except ValueError:
+        return await call.answer("Ошибка: некорректный ID товара", show_alert=True)
+
     current = db.is_good_unlimited(goodid)
-    db.set_good_unlimited(goodid, 0 if current else 1)
-    await call.answer('Готово')
-    # Перерисуем карточку, чтобы обновить кнопку
+    new_flag = not current
+    db.set_good_unlimited(goodid, new_flag)
+
+    await call.answer(f"Безлимитность: {'включена' if new_flag else 'выключена'}")
+
+    # Перерисуем карточку товара, чтобы увидеть новую кнопку
+    try:
+        await call.message.delete()
+    except Exception:
+        pass
     await send_admin_good(goodid, call.from_user.id)
-# --- ↑↑↑ ДОБАВЛЕНО ↑↑↑
