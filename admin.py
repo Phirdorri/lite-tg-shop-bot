@@ -658,32 +658,50 @@ async def addgoodphotoskipcall(call: types.CallbackQuery, state: FSMContext):
 
 @dp.message_handler(state=AddGood.Price)
 async def addgoodprice(message: types.Message, state: FSMContext):
-    # 1) Валидируем цену
-    text = message.text.strip()
+    """
+    Финальный шаг мастера: сохраняем товар.
+    Если категория пропущена (SubcatId отсутствует/None/'none'), сохраняем как «товар без категории».
+    """
+    # 1) Валидация цены (поддерживаем запятую и точку)
+    text = (message.text or "").strip()
     try:
         price = float(text.replace(',', '.'))
+        if price < 0:
+            raise ValueError
     except ValueError:
         return await message.answer(
-            'Вы неправильно ввели цену! Используйте целое число или десятичное, например: <code>249.50</code>'
+            'Вы неправильно ввели цену! Используйте целое или десятичное число, например: <code>249.50</code>'
         )
 
-    # 2) Собираем данные из state
+    # 2) Достаём данные из FSM
     async with state.proxy() as data:
         name = data.get('Name') or data.get('name') or 'Без названия'
         description = data.get('Description') or data.get('description') or ''
         photo = data.get('Photo') or data.get('photo') or 'None'
         subcat = data.get('SubcatId')
 
-    # 3) Сохраняем товар: без категории или с категорией
-    if subcat is None:
-        good_id = db.add_good_nocat(name, description, photo, price)
-    else:
-        good_id = db.add_good(subcat, name, description, photo, price)
+    # 3) Сохраняем товар
+    try:
+        # если категория пропущена
+        if subcat is None or str(subcat).lower() == 'none' or str(subcat).strip() == '':
+            # товар «без категории»
+            # ВАЖНО: метод add_good_nocat должен внутри выставлять is_unlimited=0 (обычный)
+            # или по твоим правилам — 1 (если хочешь сразу безлимитный). Мы оставим как есть, как в БД.
+            good_id = db.add_good_nocat(name, description, photo, price)
+        else:
+            # сохраняем в подкатегорию
+            try:
+                subcat_id = int(subcat)
+            except (TypeError, ValueError):
+                subcat_id = subcat  # на случай, если твоя БД сама приводит тип
+            good_id = db.add_good(subcat_id, name, description, photo, price)
+    except Exception as e:
+        # не падаем — сообщаем админу и остаёмся в том же состоянии
+        await message.answer(f'Ошибка при сохранении товара: {e}')
+        return
 
-    # Завершаем FSM
+    # 4) Завершаем FSM и показываем карточку товара администратору
     await state.finish()
-
-    # 4) Отправляем подтверждение и показываем админ-карточку товара
     await message.answer('Товар сохранён ✅')
     await send_admin_good(good_id, message.from_user.id)
 
